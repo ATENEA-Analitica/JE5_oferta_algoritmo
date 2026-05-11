@@ -1,6 +1,4 @@
-# Insumos y resultados (no versionados)
-data/*.RData
-data/*.xlsx
+# Resultados generados (no versionados)
 output/*.xlsx
 
 # Archivos de entorno R

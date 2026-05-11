@@ -302,7 +302,7 @@ Siga estos pasos para replicar los resultados oficiales.
    ```
 
 3. **Cargar insumos:**
-   Coloque `JE5_Insumo.RData` (entregado por el equipo de datos) en la carpeta `data/`.
+   El insumo oficial `data/JE5_Insumo.RData` viene incluido en el repositorio.
 
 4. **Ejecutar el algoritmo:**
    Abra `JE5_Main.R` y ejecute con `source("JE5_Main.R")` o el boton "Source" de RStudio.
