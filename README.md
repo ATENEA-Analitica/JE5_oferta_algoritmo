@@ -203,26 +203,7 @@ $$Demanda\_Social_{CINE\_i} = \frac{NúmeroInscritos\ en\ CINE\ F\ Campo\ Detall
 | `IES_NIVEL` | Auditoria de la bolsa IES x Nivel (Paso 1) con remanente final. |
 | `CINE` | Auditoria de la bolsa CINE x Nivel (componente demanda social). |
 
----
-
-## 5. Diferencias frente al algoritmo JE4
-
-| Aspecto | JE4 | JE5 |
-|---|---|---|
-| Presupuesto general | Definido por convocatoria abierta | $17.753.034.702 (adicion FDL a convenios JE4) |
-| Universo de IES | Todas las IES participantes | Solo IES con convenio vigente JE4 (~39 IES) |
-| Bolsa IES (Paso 1) | TIR ponderada por IES y nivel; excluye TIR negativa | Proporcion del valor del convenio JE4 (sin exclusion por TIR) |
-| Habilitacion | Administrativa (`PROGRAMA_HABILITADO`) | Agrega ejecutoria SNIES > 2026-12-06 + exclusion Medicina |
-| Distribucion intra-IES | 95% Universitario / 5% TyT | Igual |
-| Particion ISOES / Demanda | 90% / 10% | Igual |
-| Semilla | `set.seed(20251010)` | `set.seed(20260427)` |
-| Salida | XLSX con 5 hojas (incluye `BOLSA_ANUAL`) | XLSX con 4 hojas |
-
-> El repositorio JE4 publicable se encuentra en [ATENEA-SAIGC/Selecci-n-JE4](https://github.com/ATENEA-SAIGC/Selecci-n-JE4).
-
----
-
-## 6. Diccionario de Datos
+## 5. Diccionario de Datos
 
 ### Input: `data/JE5_Insumo.RData`
 
@@ -255,7 +236,7 @@ $$Demanda\_Social_{CINE\_i} = \frac{NúmeroInscritos\ en\ CINE\ F\ Campo\ Detall
 
 ---
 
-## 7. Instrucciones de Ejecucion
+## 6. Instrucciones de Ejecucion
 
 1. Instale R (4.5+) y RStudio. Clone este repositorio.
 2. Instale dependencias:
@@ -269,7 +250,7 @@ $$Demanda\_Social_{CINE\_i} = \frac{NúmeroInscritos\ en\ CINE\ F\ Campo\ Detall
 
 ---
 
-## 8. Garantia de Reproducibilidad
+## 7. Garantia de Reproducibilidad
 
 El algoritmo es deterministico bajo las mismas entradas:
 
@@ -281,7 +262,7 @@ El algoritmo es deterministico bajo las mismas entradas:
 
 ---
 
-## 9. Preguntas Frecuentes y Glosario
+## 8. Preguntas Frecuentes y Glosario
 
 **Por que un programa puede recibir menos cupos de los que oferto?**
 Porque la bolsa de su IES (proporcional al valor del convenio JE4) no alcanza para financiar todos los cupos ofertados. Solo se aprueba lo que se puede financiar sin exceder el presupuesto.
@@ -298,7 +279,7 @@ Se acumulan a la bolsa de demanda social (10% + excedente), que se reparte entre
 **Es posible replicar los resultados fuera de ATENEA?**
 Si. Con este repositorio, el insumo `data/JE5_Insumo.RData` (incluido) y `renv::restore()` cualquier persona reproduce los resultados paso a paso.
 
-### Glosario
+### 9. Glosario
 
 | Termino | Definicion |
 |---|---|
