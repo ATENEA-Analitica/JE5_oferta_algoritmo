@@ -126,7 +126,7 @@ El nivel de formacion se homologa a dos categorias: `UNIVERSITARIO` y `TYT` (Tec
 
 **Bolsa por IES** (Paso 1), proporcional al valor del convenio JE4:
 
-$$Recursos_{IES_i} = \left(\frac{Valor\_convenio_{IES_i}}{\sum_{i=1}^{n} Valor\_convenio_{IES_i}}\right) \times 90\% \times PPTO\_GENERAL$$
+$$Recursos_{IES_i} = \left(\frac{ValorConvenio_{IES_i}}{\sum_{i=1}^{n} ValorConvenio_{IES_i}}\right) \times 90\% \times PPTO\_GENERAL$$
 
 **Distribucion intra-IES por nivel** (Paso 1.1): 100% al nivel ofertado si la IES tiene un solo nivel; 95% Universitario / 5% TyT si tiene ambos.
 
@@ -172,7 +172,7 @@ PARA CADA (IES, Nivel) EN ORDEN:
 
 **Indicador de demanda social** (calculado por nivel sobre datos historicos JE2):
 
-$$Demanda\_Social_{CINE\_i} = \frac{\#\ inscritos\ en\ CINE\ F\ Campo\ Detallado\ i}{\#\ cupos\ en\ CINE\ F\ Campo\ Detallado\ i}$$
+$$Demanda\_Social_{CINE\_i} = \frac{NúmeroInscritos\ en\ CINE\ F\ Campo\ Detallado\ i}{NúmeroCupos\ en\ CINE\ F\ Campo\ Detallado\ i}$$
 
 **Universo elegible** (filtros en cascada):
 
