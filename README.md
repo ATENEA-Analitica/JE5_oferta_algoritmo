@@ -16,7 +16,7 @@
 
 ## Tabla de Contenidos
 
-1. [Introduccion y Contexto](#1-introduccion-y-contexto)
+1. [Ficha de Transparencia Algoritmica](#1-ficha-de-transparencia-algoritmica)
 2. [Arquitectura del Proyecto](#2-arquitectura-del-proyecto)
 3. [Requisitos Tecnicos](#3-requisitos-tecnicos)
 4. [Logica Detallada del Algoritmo](#4-logica-detallada-del-algoritmo)
@@ -29,78 +29,73 @@
 6. [Diccionario de Datos](#6-diccionario-de-datos)
 7. [Instrucciones de Ejecucion](#7-instrucciones-de-ejecucion)
 8. [Garantia de Reproducibilidad](#8-garantia-de-reproducibilidad)
-9. [Uso del Codigo](#9-uso-del-codigo)
+9. [Preguntas Frecuentes y Glosario](#9-preguntas-frecuentes-y-glosario)
+10. [Uso del Codigo](#10-uso-del-codigo)
 
 ---
 
-## 1. Introduccion y Contexto
+## 1. Ficha de Transparencia Algoritmica
 
-Este repositorio contiene la implementacion tecnica del **Mecanismo de Seleccion y Aprobacion de Ofertas Tecnicas** para la quinta convocatoria del programa "Jovenes a la E" (JE5). El algoritmo prioriza programas academicos presentados por Instituciones de Educacion Superior (IES) privadas con convenio vigente en la cuarta convocatoria y asigna cupos contra el presupuesto disponible, con base en el indice ISOES y el componente de alta demanda social.
+| Campo | Contenido |
+|---|---|
+| **Tipo de algoritmo** | Procesamiento de datos (regla de negocio deterministica). No usa aprendizaje automatico ni inferencia estadistica. |
+| **Nombre** | Seleccion de oferta de programas academicos - quinta convocatoria "Jovenes a la E" (JE5). |
+| **Objetivo** | Aplicar los criterios del lineamiento operativo para seleccionar la cantidad de cupos a financiar por cada programa presentado por las IES con convenio JE4 vigente. |
+| **Funcion institucional** | Asignar cupos a programas de niveles Tecnico, Tecnologico y Universitario del programa de beneficios de ATENEA "Jovenes a la E", que promueve acceso y permanencia en educacion superior y formacion para el trabajo de ciclo largo de los bachilleres de Bogota. |
+| **Estado** | En implementacion (vigente para la quinta convocatoria - mayo 2026). |
+| **Datos personales** | No procesa datos personales. Opera sobre atributos de IES y programas (codigos SNIES, costos, capacidad, ISOES, TIR). |
+| **Tipo de datos** | Identificadores SNIES (IES y programa), costos por semestre, cupos por capacidad, ISOES, TIR, ejecutoria SNIES, valor convenio JE4, demanda historica por CINE F. Ver [Diccionario de Datos](#6-diccionario-de-datos). |
+| **Desarrollador** | Agencia Distrital para la Educacion Superior, la Ciencia y la Tecnologia (ATENEA) - Subgerencia de Analisis de Informacion y Gestion del Conocimiento (SAIGC). |
+| **Insumo normativo** | [Lineamiento Operativo L45_EP v1](docs/) (aprobado 2026-05-04). |
+| **Presupuesto** | $17.753.034.702 COP, provenientes de la adicion de los Fondos de Desarrollo Local (Bosa, Kennedy, Ciudad Bolivar, Teusaquillo, Usme, Usaquen, Los Martires) a los convenios JE4. |
 
-El insumo normativo es el **Lineamiento Operativo L45_EP v1** (aprobado el 4 de mayo de 2026), incluido en [docs/](docs/). El presupuesto disponible proviene de la adicion de los Fondos de Desarrollo Local (FDL) de Bosa, Kennedy, Ciudad Bolivar, Teusaquillo, Usme, Usaquen y Los Martires a los convenios JE4.
+**Principios de diseno:**
 
-El algoritmo ha sido disenado bajo los principios de:
-* **Transparencia:** reglas de negocio codificadas explicitamente sin "cajas negras".
-* **Eficiencia:** procesamiento vectorial con `dplyr` y SQL embebido para validaciones.
+* **Transparencia:** reglas de negocio codificadas explicitamente, sin "cajas negras".
 * **Auditabilidad:** trazas intermedias en consola y libro Excel con hojas de auditoria presupuestal.
-* **Reproducibilidad:** semilla fija (`set.seed`) y `renv` para fijar versiones de las dependencias.
+* **Reproducibilidad:** semilla fija `set.seed(20260427)` y dependencias congeladas con `renv`.
+
+**Como funciona (resumen):** el algoritmo (1) **habilita** la oferta cruzando convenio JE4 y ejecutoria SNIES, (2) **reparte el presupuesto** en bolsas (90% mecanismo ISOES + 10% demanda social; dentro de ISOES, una bolsa por IES proporcional al valor de su convenio JE4), (3) **ordena los programas** por ISOES > costo de cohorte > capacidad > semilla, (4) **asigna cupos** hasta donde alcance la bolsa, (5) **reasigna excedentes** entre IES del mismo nivel y luego al componente de demanda social. El detalle paso a paso esta en la [Seccion 4](#4-logica-detallada-del-algoritmo).
 
 ---
 
 ## 2. Arquitectura del Proyecto
 
-El codigo ha sido refactorizado desde un script monolitico a una arquitectura modular secuencial. Cada modulo aborda una fase del lineamiento operativo y puede auditarse por separado.
+El codigo esta organizado en una arquitectura modular secuencial. Cada modulo aborda una fase del lineamiento operativo y puede auditarse por separado.
 
 ```text
 AlgoritmoJE5_Oferta/
 |
-|-- .gitignore                # Configuracion de exclusion de archivos sensibles
 |-- JE5_Main.R                # ORQUESTADOR PRINCIPAL (Entry Point)
-|-- README.md                 # Documentacion tecnica (este archivo)
+|-- README.md                 # Documentacion (este archivo)
 |-- LICENSE                   # CC BY - Obra institucional ATENEA
-|-- renv.lock                 # Manifiesto de dependencias exactas (Freeze)
+|-- renv.lock                 # Manifiesto de dependencias exactas
 |
-|-- data/                     # Carpeta de insumos (ignorada en git)
-|   +-- JE5_Insumo.RData      # Listado de oferta, costos, SNIES, convenios JE4, demanda historica
+|-- data/                     # Insumos
+|   +-- JE5_Insumo.RData      # Oferta, costos, SNIES, convenios JE4, demanda historica
 |
-|-- output/                   # Resultados generados (ignorada en git)
+|-- output/                   # Resultados generados
 |   +-- JE5_OFERTA_VF_YYYYMMDD.xlsx
 |
-|-- docs/                     # Lineamiento operativo y documentos de soporte
+|-- docs/                     # Lineamiento operativo y soporte
 |   +-- l45_ep_lineamiento_operativo_..._JE5.pdf
 |
-+-- modules/                  # Logica de negocio desagregada
++-- modules/                  # Logica de negocio
     |-- 1_habilitacion.R      # Habilitacion IES (convenio JE4) + programas (ejecutoria SNIES)
-    |-- 2_presupuesto_ies.R   # Paso 0 + Paso 1: bolsa IES proporcional al valor convenio JE4
+    |-- 2_presupuesto_ies.R   # Bolsa IES proporcional al valor convenio JE4
     |-- 3_asignacion_isoes.R  # Paso 2 (intra-IES) y Paso 3 (excedente por Nivel)
     |-- 4_demanda_social.R    # Componente 10% + excedente ISOES, bolsas CINE x Nivel
-    +-- 5_exportacion.R       # Consolidacion y exportacion XLSX con auditoria
+    +-- 5_exportacion.R       # Consolidacion y exportacion XLSX
 ```
 
 ---
 
 ## 3. Requisitos Tecnicos
 
-### Software
+* **R** 4.5.1 o superior y **renv** 1.1.5+.
+* Dependencias declaradas en `renv.lock` y restauradas con `renv::restore()`.
 
-* **Lenguaje R:** Version 4.5.1 o superior.
-* **Gestor de Paquetes:** `renv` (version 1.1.5+).
-
-### Dependencias (Librerias R)
-
-El entorno se restaura automaticamente usando `renv.lock`. Librerias base:
-
-| Libreria    | Funcion Principal                                            |
-|-------------|--------------------------------------------------------------|
-| `sqldf`     | Consultas SQL sobre dataframes para validaciones.            |
-| `expss`     | Tablas cruzadas y etiquetado.                                |
-| `readr`     | Lectura eficiente de archivos planos.                        |
-| `readxl`    | Lectura de archivos Excel.                                   |
-| `dplyr`     | Manipulacion de dataframes, mutaciones y agregaciones.       |
-| `tidyr`     | Transformacion y reestructuracion de datos.                  |
-| `eeptools`  | Herramientas auxiliares.                                     |
-| `openxlsx`  | Escritura y formateo de reportes finales en Excel.           |
-| `lubridate` | Aritmetica de fechas para la habilitacion por ejecutoria.    |
+Librerias principales: `dplyr`, `tidyr`, `sqldf`, `readr`, `readxl`, `openxlsx`, `lubridate`, `expss`, `eeptools`.
 
 ---
 
@@ -108,107 +103,87 @@ El entorno se restaura automaticamente usando `renv.lock`. Librerias base:
 
 ### Fase 1: Habilitacion de IES y Programas (Modulo 1)
 
-**Archivo:** `modules/1_habilitacion.R`
-**Referencia normativa:** Lineamiento operativo, numeral 5.4.1.3.
+**Archivo:** `modules/1_habilitacion.R` - **Referencia:** Lineamiento operativo, numeral 5.4.1.3.
 
-Para la quinta convocatoria, una IES y sus programas se consideran habilitados unicamente si cumplen los tres criterios siguientes:
+Una IES y sus programas se consideran habilitados solo si cumplen los tres criterios:
 
-1. **Convenio vigente JE4:** la IES debe contar con convenio activo suscrito en el marco de la Invitacion Publica ATENEA-IA-JE-003-2025. Se cruza el listado de oferta contra `JE4_Valor_Convenios`.
-2. **Ejecutoria SNIES vigente:** `FECHA_EJECUTORIA + VIGENCIA_AÑOS > 2026-12-06` (seis meses contados a partir de la publicacion del lineamiento). Corte SNIES: 30 de abril de 2026.
-3. **Exclusion explicita de programas de Medicina:** se marcan como `NO_HABILITADO` los SNIES 20603, 1807, 5116, 21465 y 4911.
+1. **Convenio vigente JE4:** la IES debe contar con convenio activo de la Invitacion Publica ATENEA-IA-JE-003-2025. Se cruza el listado de oferta contra `JE4_Valor_Convenios`.
+2. **Ejecutoria SNIES vigente:** `FECHA_EJECUTORIA + VIGENCIA_AÑOS > 2026-12-06`. Corte SNIES: 30 de abril de 2026.
+3. **Exclusion explicita de Medicina:** SNIES 20603, 1807, 5116, 21465 y 4911.
 
-Adicionalmente, el nivel de formacion se homologa a dos categorias: `UNIVERSITARIO` y `TYT` (Tecnico/Tecnologico).
+El nivel de formacion se homologa a dos categorias: `UNIVERSITARIO` y `TYT` (Tecnico/Tecnologico).
 
 ---
 
 ### Fase 2: Distribucion del Presupuesto por IES (Modulo 2)
 
-**Archivo:** `modules/2_presupuesto_ies.R`
-**Referencia normativa:** Lineamiento operativo, numerales 5.1 y 5.4.1.4 Paso 1.
+**Archivo:** `modules/2_presupuesto_ies.R` - **Referencia:** Lineamiento operativo, numerales 5.1 y 5.4.1.4 Paso 1.
 
-**Presupuesto general:** `$17.753.034.702 COP` (≈450 cupos para semestre 2026-2).
+| Componente | % | Valor |
+|---|---:|---|
+| Mecanismo ISOES | 90% | $15.977.731.231,80 |
+| Componente de Demanda Social | 10% | $1.775.303.470,20 |
 
-**Particion macro del presupuesto:**
-
-| Componente                  | % Asignacion | Valor                  |
-|-----------------------------|-------------:|------------------------|
-| Mecanismo ISOES             |       90%    | $15.977.731.231,80     |
-| Componente de Demanda Social|       10%    | $1.775.303.470,20      |
-
-**Bolsa por IES (Paso 1):** proporcional al **valor del convenio suscrito en JE4**, conforme a la formula del lineamiento:
+**Bolsa por IES** (Paso 1), proporcional al valor del convenio JE4:
 
 $$Recursos_{IES_i} = \left(\frac{Valor\_convenio_{IES_i}}{\sum_{i=1}^{n} Valor\_convenio_{IES_i}}\right) \times 90\% \times PPTO\_GENERAL$$
 
-**Distribucion intra-IES por nivel (Paso 1.1):**
-
-* Si la IES tiene oferta en **un solo nivel** -> 100% al nivel ofertado.
-* Si la IES tiene oferta en **ambos niveles** -> 95% Universitario / 5% TyT.
+**Distribucion intra-IES por nivel** (Paso 1.1): 100% al nivel ofertado si la IES tiene un solo nivel; 95% Universitario / 5% TyT si tiene ambos.
 
 ---
 
 ### Fase 3: Asignacion por Mecanismo ISOES (Modulo 3)
 
-**Archivo:** `modules/3_asignacion_isoes.R`
-**Referencia normativa:** Lineamiento operativo, numeral 5.4.1.4 Pasos 2 y 3.
-
-#### Paso 2: Asignacion de cupos al interior de la IES
+**Archivo:** `modules/3_asignacion_isoes.R` - **Referencia:** Lineamiento operativo, numeral 5.4.1.4 Pasos 2 y 3.
 
 **Ordenamiento de programas (estricto y deterministico):**
 
-1. `desc(ISOES_PROGRAMA)` — mayor ISOES primero.
-2. `TOTAL_VALOR_COHORTE_ATENEA` ascendente — menor costo de cohorte primero (Nota del lineamiento: "se priorizara el programa con menor costo").
-3. `desc(CUPOS_SEGUN_CAPACIDAD)` — mayor capacidad ofertada primero.
-4. `SEMILLA` aleatoria auditable — ultimo criterio de desempate.
+1. `desc(ISOES_PROGRAMA)` - mayor ISOES primero (indice ponderado de pertinencia, calidad y permanencia).
+2. `TOTAL_VALOR_COHORTE_ATENEA` asc - menor costo primero (Nota del lineamiento: "se priorizara el programa con menor costo").
+3. `desc(CUPOS_SEGUN_CAPACIDAD)` - mayor capacidad primero.
+4. `SEMILLA` - desempate aleatorio reproducible.
 
-**Iteracion (pseudocodigo):**
+**Paso 2 - Asignacion intra-IES (pseudocodigo):**
 
 ```text
 PARA CADA (IES, Nivel) EN ORDEN:
-    PARA CADA Programa EN ranking_dentro_de_IES:
+    PARA CADA Programa EN ranking_intra_IES:
 
-        CUPO_OFERTADO  = Cupos segun capacidad
-        CUPO_CALCULADO = Bolsa_IES_Nivel_remanente / Valor_cohorte_Atenea
+        CUPO_OFERTADO  = CUPOS_SEGUN_CAPACIDAD
+        CUPO_CALCULADO = Bolsa_IES_Nivel_remanente / TOTAL_VALOR_COHORTE_ATENEA
 
         SI (CUPO_CALCULADO >= CUPO_OFERTADO):
-            # Alcanza para todos los cupos ofertados
             Asignar CUPO_OFERTADO
-
         SINO SI (CUPO_CALCULADO >= 1):
-            # Alcanza para al menos 1 cupo - se trunca al entero
             Asignar floor(CUPO_CALCULADO)
-
         SINO:
-            # No alcanza para ningun cupo completo - se reporta
             Sin asignacion en este paso
 ```
 
-#### Paso 3: Reasignacion del excedente por Nivel
-
-Los saldos de cada IES se agrupan en una bolsa comun por Nivel (Universitario / TyT). Se recorre nuevamente la lista de programas (en el mismo orden ISOES) y se asignan cupos a aquellos con `CUPO_PENDIENTES > 0`, hasta agotar la bolsa o agotar los programas.
+**Paso 3 - Reasignacion del excedente por Nivel:** los saldos de cada IES se agrupan en una bolsa comun por Nivel (Universitario / TyT). Se recorre nuevamente la lista en el mismo orden ISOES y se asignan cupos a programas con `CUPO_PENDIENTES > 0`, hasta agotar la bolsa o los programas.
 
 ---
 
 ### Fase 4: Componente de Alta Demanda Social (Modulo 4)
 
-**Archivo:** `modules/4_demanda_social.R`
-**Referencia normativa:** Lineamiento operativo, numeral 5.4.1.5.
+**Archivo:** `modules/4_demanda_social.R` - **Referencia:** Lineamiento operativo, numeral 5.4.1.5.
 
-**Bolsa inicial:** 10% del PPTO_GENERAL **mas** todo el excedente que haya dejado el mecanismo ISOES.
+**Bolsa inicial:** 10% del PPTO_GENERAL **mas** todo el excedente del mecanismo ISOES.
 
 **Indicador de demanda social** (calculado por nivel sobre datos historicos JE2):
 
 $$Demanda\_Social_{CINE\_i} = \frac{\#\ inscritos\ en\ CINE\ F\ Campo\ Detallado\ i}{\#\ cupos\ en\ CINE\ F\ Campo\ Detallado\ i}$$
 
-**Universo de programas elegibles:** se aplican estos filtros en cascada:
+**Universo elegible** (filtros en cascada):
 
-1. Programas con `< 6 cupos` asignados en el mecanismo ISOES (agregando por CINE F).
-2. Con `CUPO_PENDIENTES > 0` segun capacidad.
-3. Con indicador de demanda social disponible (no nulo).
-4. Por **encima del percentil 50** en el indicador de demanda social del nivel.
+1. Programas con `< 6 cupos` asignados en ISOES (agregando por CINE F).
+2. `CUPO_PENDIENTES > 0` segun capacidad.
+3. Indicador de demanda social disponible.
+4. Por encima del percentil 50 del indicador en su nivel.
 
-**Distribucion:** 95% Universitario / 5% TyT sobre el presupuesto de demanda social. Dentro de cada nivel, las bolsas se reparten por **CINE x Nivel** proporcionalmente a los inscritos historicos (`DH_INSCRITOS`).
+**Distribucion:** 95% Universitario / 5% TyT. Dentro de cada nivel, las bolsas se reparten por **CINE x Nivel** proporcionalmente a los inscritos historicos (`DH_INSCRITOS`).
 
-**Recorrido:** identico al Modulo 3 — primero asignacion intra-CINE (analogo al Paso 2), luego reasignacion del excedente CINE en bolsa comun por Nivel (analogo al Paso 3).
+**Recorrido:** identico al Modulo 3 (intra-CINE primero, luego excedente por Nivel).
 
 ---
 
@@ -216,32 +191,32 @@ $$Demanda\_Social_{CINE\_i} = \frac{\#\ inscritos\ en\ CINE\ F\ Campo\ Detallado
 
 **Archivo:** `modules/5_exportacion.R`
 
-1. **Merge final:** se cruzan los resultados del mecanismo ISOES con los del componente de demanda social por `ORDENAMIENTO_PROG`.
-2. **Totales:** `CUPOS_ASIGNADOS_TOTAL = ISOES + Demanda_Social`; `COSTO = CUPOS * TOTAL_VALOR_COHORTE_ATENEA`.
-3. **Pruebas de cierre presupuestal** en consola: cupos por componente, costo total y diferencia vs. PPTO_GENERAL.
-4. **Exportacion:** `output/JE5_OFERTA_VF_YYYYMMDD.xlsx` con cuatro hojas:
+1. Merge de resultados ISOES + Demanda Social por `ORDENAMIENTO_PROG`.
+2. `CUPOS_ASIGNADOS_TOTAL = ISOES + Demanda_Social`; `COSTO = CUPOS * TOTAL_VALOR_COHORTE_ATENEA`.
+3. Pruebas de cierre presupuestal en consola.
+4. Exportacion a `output/JE5_OFERTA_VF_YYYYMMDD.xlsx` con cuatro hojas:
 
-| Hoja                 | Contenido                                                                       |
-|----------------------|---------------------------------------------------------------------------------|
-| **JE5_PROGRAMAS**    | Resultado detallado por programa: ranking, cupos asignados por paso y costos.  |
-| **EXCEDENTES_NIVEL** | Saldo final de la bolsa comun por Nivel.                                        |
-| **IES_NIVEL**        | Auditoria de la bolsa IES x Nivel (Paso 1) con remanente final.                 |
-| **CINE**             | Auditoria de la bolsa CINE x Nivel (componente demanda social).                 |
+| Hoja | Contenido |
+|---|---|
+| `JE5_PROGRAMAS` | Resultado detallado por programa: ranking, cupos asignados por paso y costos. |
+| `EXCEDENTES_NIVEL` | Saldo final de la bolsa comun por Nivel. |
+| `IES_NIVEL` | Auditoria de la bolsa IES x Nivel (Paso 1) con remanente final. |
+| `CINE` | Auditoria de la bolsa CINE x Nivel (componente demanda social). |
 
 ---
 
 ## 5. Diferencias frente al algoritmo JE4
 
-| Aspecto                          | JE4                                                                         | JE5                                                                                          |
-|----------------------------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|
-| Presupuesto general              | Definido por convocatoria abierta                                           | $17.753.034.702 (adicion FDL a convenios JE4)                                                 |
-| Universo de IES                  | Todas las IES participantes en la convocatoria                              | Solo IES con **convenio vigente JE4** (~39 IES)                                               |
-| Criterio para bolsa IES (Paso 1) | TIR ponderada por IES y nivel; se excluyen IES con TIR ponderada negativa   | **Proporcion del valor del convenio JE4** (sin exclusion por TIR)                            |
-| Habilitacion de programas        | Habilitacion administrativa (`PROGRAMA_HABILITADO`)                         | Agrega **vigencia de ejecutoria SNIES > 2026-12-06** + exclusion explicita de Medicina       |
-| Distribucion intra-IES por Nivel | 95% Universitario / 5% TyT                                                  | Igual                                                                                          |
-| Semilla reproducible             | `set.seed(20251010)`                                                        | `set.seed(20260427)`                                                                           |
-| Particion ISOES / Demanda Social | 90% / 10%                                                                   | Igual                                                                                          |
-| Salida                           | XLSX con `JE4_PROGRAMAS`, `EXCEDENTES_NIVEL`, `BOLSA_ANUAL`, `IES`, `CINE`  | XLSX con `JE5_PROGRAMAS`, `EXCEDENTES_NIVEL`, `IES_NIVEL`, `CINE`                              |
+| Aspecto | JE4 | JE5 |
+|---|---|---|
+| Presupuesto general | Definido por convocatoria abierta | $17.753.034.702 (adicion FDL a convenios JE4) |
+| Universo de IES | Todas las IES participantes | Solo IES con convenio vigente JE4 (~39 IES) |
+| Bolsa IES (Paso 1) | TIR ponderada por IES y nivel; excluye TIR negativa | Proporcion del valor del convenio JE4 (sin exclusion por TIR) |
+| Habilitacion | Administrativa (`PROGRAMA_HABILITADO`) | Agrega ejecutoria SNIES > 2026-12-06 + exclusion Medicina |
+| Distribucion intra-IES | 95% Universitario / 5% TyT | Igual |
+| Particion ISOES / Demanda | 90% / 10% | Igual |
+| Semilla | `set.seed(20251010)` | `set.seed(20260427)` |
+| Salida | XLSX con 5 hojas (incluye `BOLSA_ANUAL`) | XLSX con 4 hojas |
 
 > El repositorio JE4 publicable se encuentra en [ATENEA-SAIGC/Selecci-n-JE4](https://github.com/ATENEA-SAIGC/Selecci-n-JE4).
 
@@ -251,93 +226,104 @@ $$Demanda\_Social_{CINE\_i} = \frac{\#\ inscritos\ en\ CINE\ F\ Campo\ Detallado
 
 ### Input: `data/JE5_Insumo.RData`
 
-Contiene los siguientes objetos:
-
-| Objeto                       | Descripcion                                                                                       |
-|------------------------------|---------------------------------------------------------------------------------------------------|
-| `LISTADO_OFERTA_PROPUESTA`   | Oferta tecnica presentada por las IES (programas, costos por semestre, capacidad, ISOES, TIR).    |
-| `JE5_InsumoCostos`           | Costos actualizados por semestre desde 2026-2.                                                     |
-| `SNIES_PROGRAMAS`            | Datos del SNIES por programa: fecha de ejecutoria, vigencia, estado.                              |
-| `JE4_Valor_Convenios`        | Convenios vigentes JE4 por IES (CODIGO_SNIES_IES, VALOR TOTAL, CONVENIO).                          |
-| `DemandaHistorica`           | Demanda social historica por CINE F detallado y Nivel (inscritos, cupos, indicador, percentil 50).|
+| Objeto | Descripcion |
+|---|---|
+| `LISTADO_OFERTA_PROPUESTA` | Oferta tecnica de las IES (programas, costos por semestre, capacidad, ISOES, TIR). |
+| `JE5_InsumoCostos` | Costos actualizados por semestre desde 2026-2. |
+| `SNIES_PROGRAMAS` | Datos SNIES por programa: fecha de ejecutoria, vigencia, estado. |
+| `JE4_Valor_Convenios` | Convenios vigentes JE4 por IES (CODIGO_SNIES_IES, VALOR TOTAL, CONVENIO). |
+| `DemandaHistorica` | Demanda social historica por CINE F detallado y Nivel (inscritos, cupos, indicador, percentil 50). |
 
 **Campos clave de `LISTADO_OFERTA_PROPUESTA`:**
 
-| Campo                                  | Descripcion                                                |
-|----------------------------------------|------------------------------------------------------------|
-| `ID`                                   | Identificador unico del registro de oferta                 |
-| `COD_IES`                              | Codigo SNIES de la IES                                     |
-| `NOMBRE_IES`                           | Nombre de la IES                                           |
-| `CÓDIGO_SNIES_DEL_PROGRAMA_A_OFERTAR`  | Codigo SNIES del programa                                  |
-| `NIVEL_DE_FORMACIÓN`                   | Nivel original del SNIES                                   |
-| `NIVEL_PROGRAMA_SNIES_AJUSTE`          | Homologacion a UNIVERSITARIO / TYT                         |
-| `CINE_F_2013_AC_CAMPO_DETALLADO`       | CINE F campo detallado (base para demanda social)          |
-| `ISOES_PROGRAMA`                       | Indice ISOES del programa                                  |
-| `TIR_PROGRAMA`                         | Tasa Interna de Retorno del programa                       |
-| `TOTAL_VALOR_COHORTE_ATENEA`           | Costo asumido por Atenea por cohorte                       |
-| `CUPOS_SEGÚN_CAPACIDAD`                | Cupos ofertados por la IES                                 |
-| `PROGRAMA_HABILITADO`                  | Habilitacion administrativa previa                         |
-| `HABILITADO_EJECUTORIA`                | Habilitacion calculada en Modulo 1 (ejecutoria + medicina) |
-| `CONVENIO`                             | Convenio JE4 (NA si la IES no tiene convenio)              |
-
-### Output: `output/JE5_OFERTA_VF_YYYYMMDD.xlsx`
-
-Ver tabla en [Fase 5](#fase-5-consolidacion-y-exportacion-modulo-5).
+| Campo | Descripcion |
+|---|---|
+| `ID` | Identificador unico del registro de oferta |
+| `COD_IES` | Codigo SNIES de la IES |
+| `NOMBRE_IES` | Nombre de la IES |
+| `CÓDIGO_SNIES_DEL_PROGRAMA_A_OFERTAR` | Codigo SNIES del programa |
+| `NIVEL_DE_FORMACIÓN` | Nivel original del SNIES |
+| `NIVEL_PROGRAMA_SNIES_AJUSTE` | Homologacion a UNIVERSITARIO / TYT |
+| `CINE_F_2013_AC_CAMPO_DETALLADO` | CINE F campo detallado (base demanda social) |
+| `ISOES_PROGRAMA` | Indice ISOES del programa |
+| `TIR_PROGRAMA` | Tasa Interna de Retorno del programa |
+| `TOTAL_VALOR_COHORTE_ATENEA` | Costo asumido por ATENEA por cohorte |
+| `CUPOS_SEGÚN_CAPACIDAD` | Cupos ofertados por la IES |
+| `PROGRAMA_HABILITADO` | Habilitacion administrativa previa |
+| `HABILITADO_EJECUTORIA` | Habilitacion calculada en Modulo 1 |
+| `CONVENIO` | Convenio JE4 (NA si la IES no tiene convenio) |
 
 ---
 
 ## 7. Instrucciones de Ejecucion
 
-Siga estos pasos para replicar los resultados oficiales.
-
-1. **Preparar el entorno:**
-   * Instale R (4.5+) y RStudio.
-   * Clone este repositorio.
-
-2. **Instalar dependencias (renv):**
-   Abra el proyecto en RStudio y ejecute en la consola:
+1. Instale R (4.5+) y RStudio. Clone este repositorio.
+2. Instale dependencias:
    ```r
    if (!require("renv")) install.packages("renv")
    renv::restore()
    ```
-
-3. **Cargar insumos:**
-   El insumo oficial `data/JE5_Insumo.RData` viene incluido en el repositorio.
-
-4. **Ejecutar el algoritmo:**
-   Abra `JE5_Main.R` y ejecute con `source("JE5_Main.R")` o el boton "Source" de RStudio.
-   * El script activa `renv`, carga las librerias y ejecuta los 5 modulos en secuencia.
-   * Vera en consola el progreso de la asignacion programa por programa.
-   * Los modulos **no se ejecutan de forma independiente**: siempre debe ejecutarse desde `JE5_Main.R`.
-
-5. **Validar resultados:**
-   Al finalizar, busque el archivo `JE5_OFERTA_VF_YYYYMMDD.xlsx` en la carpeta `output/`.
+3. El insumo `data/JE5_Insumo.RData` ya viene incluido en el repositorio.
+4. Ejecute `source("JE5_Main.R")` desde RStudio. El script activa `renv`, carga librerias y corre los 5 modulos en secuencia. Los modulos **no se ejecutan de forma independiente**.
+5. Resultado: `output/JE5_OFERTA_VF_YYYYMMDD.xlsx`.
 
 ---
 
 ## 8. Garantia de Reproducibilidad
 
-Este algoritmo es deterministico. Bajo las mismas entradas siempre generara exactamente el mismo resultado, gracias a:
+El algoritmo es deterministico bajo las mismas entradas:
 
-1. **Semilla Fija:** `set.seed(20260427)` (fecha de generacion del insumo de oferta) para los desempates aleatorios.
-2. **Cortes documentados:** Corte SNIES 30 de abril de 2026; fecha de cierre de ejecutoria 6 de diciembre de 2026.
-3. **Presupuesto explicito:** `PPTO_GENERAL = 17.753.034.702 COP` definido como constante en `modules/2_presupuesto_ies.R`.
-4. **Entorno Controlado:** `renv.lock` asegura que las funciones matematicas de las librerias no cambien por actualizaciones de software.
-5. **Versionamiento:** Codigo fuente bajo control de versiones (git), permitiendo rastrear cualquier cambio en la logica.
+* **Semilla fija:** `set.seed(20260427)` (fecha de generacion del insumo de oferta) para desempates.
+* **Cortes documentados:** SNIES 2026-04-30; cierre de ejecutoria 2026-12-06.
+* **Presupuesto explicito:** `PPTO_GENERAL = 17.753.034.702 COP` en `modules/2_presupuesto_ies.R`.
+* **Entorno controlado:** `renv.lock` congela versiones de dependencias.
+* **Versionamiento:** codigo bajo git.
 
 ---
 
-## 9. Uso del Codigo
+## 9. Preguntas Frecuentes y Glosario
 
-### Autorizacion de Uso (CC BY)
+**Por que un programa puede recibir menos cupos de los que oferto?**
+Porque la bolsa de su IES (proporcional al valor del convenio JE4) no alcanza para financiar todos los cupos ofertados. Solo se aprueba lo que se puede financiar sin exceder el presupuesto.
 
-Este algoritmo de asignacion de cupos es una obra institucional de ATENEA (bajo el articulo 91 de la Ley 23 de 1982) y se publica bajo Autorizacion general de explotacion con atribucion (CC BY), en cumplimiento de los principios de transparencia y acceso a la informacion publica.
+**Por que una IES con oferta puede no recibir cupos?**
+Porque JE5 requiere convenio vigente JE4. Si la IES no participo en JE4 o su convenio no esta vigente, queda fuera del universo elegible. Adicionalmente, los programas requieren ejecutoria SNIES vigente al 2026-12-06.
 
-Cualquier persona puede reproducir, distribuir, comunicar publicamente y transformar esta obra, siempre que reconozca a ATENEA como autora institucional, indicando el nombre de la Agencia. Las modificaciones o versiones derivadas son responsabilidad exclusiva de quien las realice.
+**Por que Medicina no aparece aprobada?**
+Por decision explicita del lineamiento operativo: los SNIES 20603, 1807, 5116, 21465 y 4911 quedan excluidos.
+
+**Que pasa con los excedentes del mecanismo ISOES?**
+Se acumulan a la bolsa de demanda social (10% + excedente), que se reparte entre programas con baja asignacion ISOES, cupos pendientes y demanda historica por encima de la mediana de su nivel.
+
+**Es posible replicar los resultados fuera de ATENEA?**
+Si. Con este repositorio, el insumo `data/JE5_Insumo.RData` (incluido) y `renv::restore()` cualquier persona reproduce los resultados paso a paso.
+
+### Glosario
+
+| Termino | Definicion |
+|---|---|
+| **IES** | Institucion de Educacion Superior. |
+| **Cupo** | Matricula financiada para una persona en un programa especifico. |
+| **Cohorte** | Grupo de cupos financiados en una misma "oleada". |
+| **Vigencia** | Ano fiscal de ejecucion del gasto. |
+| **ISOES** | Indice de Seleccion de Oferta para la Educacion Superior. Indice ponderado construido por ATENEA con tres dimensiones: pertinencia (TIR, empleabilidad, salario de enganche), calidad (Saber Pro/TyT y valor agregado ICFES) y permanencia (inverso de la desercion SPADIES). Pesos diferenciados para Universitario y TyT. |
+| **TIR** | Tasa Interna de Retorno del programa (componente de pertinencia del ISOES). |
+| **CINE F** | Clasificacion Internacional Normalizada de la Educacion - campo detallado (UNESCO). |
+| **SNIES** | Sistema Nacional de Informacion de la Educacion Superior (MEN). |
+| **SPADIES** | Sistema para la Prevencion del Riesgo de Desercion en Educacion Superior. |
+| **Ejecutoria SNIES** | Fecha y vigencia del registro calificado del MEN. |
+| **Convenio JE4** | Acuerdo suscrito con la IES en la cuarta convocatoria (ATENEA-IA-JE-003-2025). |
+| **Mecanismo ISOES** | Componente que distribuye el 90% del presupuesto por ranking ISOES. |
+| **Demanda Social** | Componente que distribuye el 10% por demanda historica. |
+
+---
+
+## 10. Uso del Codigo
+
+Obra institucional de ATENEA (articulo 91 de la Ley 23 de 1982) publicada bajo **Creative Commons Attribution 4.0 (CC BY 4.0)**, en cumplimiento de los principios de transparencia y acceso a la informacion publica.
+
+Cualquier persona puede reproducir, distribuir, comunicar publicamente y transformar esta obra, citando a ATENEA como autora institucional. Las modificaciones o versiones derivadas son responsabilidad exclusiva de quien las realice. Esta autorizacion no implica cesion de derechos patrimoniales ni afecta los derechos morales sobre la obra original.
 
 (c) 2026 ATENEA - Agencia Distrital para la Educacion Superior, la Ciencia y la Tecnologia.
 
-Esta autorizacion no implica cesion de derechos patrimoniales ni afecta los derechos morales sobre la obra original.
-
-**Desarrollado por:** SAIGC - ATENEA
-**Fecha de Publicacion:** Mayo 2026
+**Desarrollado por:** SAIGC - ATENEA · **Publicacion:** Mayo 2026
